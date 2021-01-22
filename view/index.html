@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body{
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #UI{
+            flex-basis:auto;
+            flex-grow: 1;
+            overflow: auto;
+        }
+        #UI ul > li:hover{
+            background-color: white;
+            filter:invert(1);
+            cursor: pointer;
+        }
+        input[type="text"]{
+            width:500px;
+        }
+        #tablearea{
+            display: flex;
+        }
+        #messageContainer{
+            position: absolute;
+        }
+        .message{
+            position:fixed;
+            top:0;
+            left:50%;
+            padding:20px;
+            padding-top: 10px;
+            font-size: 1.5em;
+            font-weight: 900;
+            width:fit-content;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            transform: translate(-50%, -100%);
+            animation-name: move;
+            animation-duration: 1.5s;
+        }
+        @keyframes move {
+            0%{
+                transform: translate(-50%, -100%);
+            }
+            30%{
+                transform: translate(-50%, 0);
+            }
+            70%{
+                transform: translate(-50%, 0);
+            }
+            100%{
+                transform: translate(-50%, -100%);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="messageContainer"></div>
+    <h1>준비 중입니다... 잠시만 기다려주세요...</h1>
+    <h2>남은 정답 기회 : <span id="try"></span>, 점수 : <span id="score"></span></h2>
+    <div id="container"></div>
+    <div id="area">
+        <div id="searcharea">
+            <input type="text"><button id="search">검색하기</button>
+        </div>
+        <div id="answerarea">
+            <input disabled type="text"><button id="answer">제출!!!</button>
+        </div>
+    </div>
+    <div id="UI">
+        <div id="tablearea">
+
+        </div>
+    </div>
+    <script>
+        (async()=>{
+            const set = new Set();
+            const MC = document.querySelector('#messageContainer');
+            const data = URL.createObjectURL(await (await fetch('/DB/randomsong')).blob());
+            const audio = document.createElement('audio');
+            const h2Span = document.querySelector('#try');
+            const score = document.querySelector('#score');
+            const search = document.querySelector('#searcharea');
+            const answer = document.querySelector('#answerarea');
+            const table = document.querySelector('#tablearea');
+            const container = document.querySelector('#container');
+            const h1 = document.querySelector('h1');
+            const start = await (await fetch('/start', {headers:{'Content-Type':'application/json'}})).json();
+            const message = (txt, color = 'white', back = 'red') => {
+                const mes = document.createElement('div');
+                mes.innerHTML = txt;
+                mes.style.color = color;
+                mes.style.backgroundColor = back;
+                mes.classList.add('message');
+                mes.addEventListener('animationend', e => {
+                    MC.removeChild(e.target);
+                }, {once:true, passive:true});
+                MC.appendChild(mes);
+            };
+            const send = async (url, obj) => {
+                const res = await fetch(url, {
+                    method:'POST',
+                    headers:{
+                        'Content-Type':'application/json'
+                    },
+                    body:JSON.stringify(obj)
+                });
+                const data = await res.json();
+                return data;
+            };
+            const clickFun = async e => {
+                if(e.target.nodeName === 'BUTTON' || e.key === 'Enter'){
+                    // x--;
+                    const inp = e.currentTarget.querySelector('input').value.trim();
+                    if(inp.length === 0){
+                        message('글자를 써주세요.');
+                    } else {
+                        const data = await send('/DB/search', {query:inp});
+                        if(data.status === 'good'){
+                            table.innerHTML = '';
+                            const T = document.createElement('ul');
+                            for(let x of data.data){
+                                const li = document.createElement('li');
+                                if(set.has(x)) li.style.color = 'red';
+                                li.dataset.title = x;
+                                li.innerHTML = x;
+                                T.appendChild(li);
+                            }
+                            table.appendChild(T);
+                        } else {
+                            message('당신은 너무 많은 리퀘스트를 보냈습니다. 잠시 후에 시도해주세요.');
+                            return false;
+                        }
+                    }
+                }
+                if(e.key){
+                    search.addEventListener('keydown', clickFun, {once:true, passive:true});
+                } else {
+                    search.addEventListener('click', clickFun, {once:true, passive:true});
+                }
+            };
+            const answerFun = async e => {
+                if(e.target.nodeName === 'BUTTON' || e.key === 'Enter'){
+                    const inp = answer.querySelector('input').value.trim();
+                    if(inp.length === 0){
+                        message('글자를 써주세요.');
+                    } else {
+                        const data = await send('/DB/answer', {query:inp});
+                        if(data.status === 'good'){
+                            if(data.correct){
+                                message('정답입니다!!!', 'white', 'green');
+                                h1.innerHTML = `정답 : ${data.data}`;
+                                score.innerHTML = data.score;
+                                return false;
+                            } else {
+                                if(data.try){
+                                    set.add(inp);
+                                    const i = table.querySelector(`[data-title="${inp}"]`);
+                                    if(i) i.style.color = 'red';
+                                    h2Span.innerHTML = data.try;
+                                    message(`틀렸습니다... ${data.try}번 남았습니다...`);
+                                } else {
+                                    message(`틀렸습니다...`);
+                                    h2Span.innerHTML = '0';
+                                    h1.innerHTML = `정답 : ${data.data}`;
+                                    return false;
+                                }
+                            }
+                        } else {
+                            message('당신은 너무 많은 리퀘스트를 보냈습니다. 잠시 후에 시도해주세요.');
+                            return false;
+                        }
+                    }
+                }
+                if(e.key){
+                    answer.addEventListener('keydown', answerFun, {once:true, passive:true});
+                } else {
+                    answer.addEventListener('click', answerFun, {once:true, passive:true});
+                }   
+            };
+            audio.src = data;
+            audio.controls = true;
+            h1.innerHTML = '이 노래는 무슨 노래일까요?';
+            h2Span.innerHTML = start.try;
+            score.innerHTML = start.score;
+            table.addEventListener('click', e => {
+                if(e.target.nodeName === 'LI'){
+                    answer.querySelector('input').value = e.target.innerHTML.trim();
+                }
+            }, {passive:true});
+            answer.addEventListener('keydown', answerFun, {once:true, passive:true});
+            answer.addEventListener('click', answerFun, {once:true, passive:true});
+            search.addEventListener('keydown', clickFun, {once:true, passive:true});
+            search.addEventListener('click', clickFun, {once:true, passive:true});
+            container.appendChild(audio);
+        })();
+    </script>
+</body>
+</html>
