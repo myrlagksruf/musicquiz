@@ -33,39 +33,5 @@ MongoClient.connect(url, { useUnifiedTopology: true }, async (err, client) => {
         res.setHeader('Content-Type', 'audio/mpeg');
         sendSong(db, res, audio.fileId);
     });
-
-    router.post('/search', async (req, res) => {
-        const user = USER.get(req.cookies.id);
-        const obj = {status:'good'};
-        if(!user){
-            obj.status = 'fail';
-        } else {
-            const data = await col.find({title:{$regex:req.body.query, $options:'i'}}).project({title:1}).toArray();
-            obj.data = data.map(v => v.title);
-        }
-        res.end(JSON.stringify(obj))
-    }).post('/answer', async (req, res) => {
-        const user = USER.get(req.cookies.id);
-        const obj = { status:'good', correct:false };
-        if(!user){
-            obj.status = 'fail';
-        } else {
-            user.try--;
-            obj.try = user.try;
-            console.log(req.body.query, user.ans);
-            if(req.body.query === user.ans){
-                obj.data = user.ans;
-                user.ans = '';
-                user.score++;
-                obj.score = user.score;
-                obj.correct = true;
-            } else if(user.try === 0){
-                obj.data = user.ans;
-                user.ans = '';
-            } 
-        }
-        res.end(JSON.stringify(obj));
-    });
 });
-
 export default router;
