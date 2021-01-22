@@ -9,6 +9,33 @@
     </style>
 </head>
 <body>
-    <audio src="./DB/randomsong"></audio>
+    <h1>간단 설명</h1>
+    <audio controls></audio>
+    <h2>query문 설명</h2>
+    <ul>
+        <li>주소 : <span></span>/DB?&lt;&lt;query&gt;=&lt;value&gt;&gt;</li>
+        <li>title : 앨범 제목을 검색</li>
+        <li>name : 노래명을 검색</li>
+        <li>s : 오름차순에서 s개만큼 건너뛴 데이터를 가져옴(앨범기준)</li>
+        <li>l : 오름차순에서 l개만큼만 보여줌(앨범기준)</li>
+    </ul>
+    <h2>file 가져오는 방법</h2>
+    <ol>
+        <li><span></span>/file/:title/:name</li>
+        <li>위 주소 부분에서 :title을 앨범명, :name을 노래명으로 fetch함.</li>
+        <li>fetch 결과를 blob으로 처리</li>
+        <li>그 후 URL.createObjectURL 메소드를 이용하여 blob url로 변경</li>
+        <li>audio 태그의 src속성에 대입</li>
+    </ol>
+    <script>
+        const span = document.querySelectorAll('span');
+        span.forEach(v => v.innerHTML = location.origin);
+        const main = async () => {
+            const audio = document.querySelector('audio');
+            const data = URL.createObjectURL(await (await fetch('/DB/randomsong')).blob());
+            audio.src = data;
+        };
+        main();
+    </script>
 </body>
 </html>
